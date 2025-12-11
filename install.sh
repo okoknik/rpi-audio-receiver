@@ -31,6 +31,20 @@ verify_os() {
     fi
 }
 
+enable_debian_contrib() {
+    echo "Enabling Debian contrib and non-free repositories…"
+
+    # Backup sources.list
+    sudo cp /etc/apt/sources.list /etc/apt/sources.list.backup
+
+    # Add contrib and non-free to lines containing 'main'
+    sudo sed -i 's/ main$/ main contrib non-free/' /etc/apt/sources.list
+    sudo sed -i 's/ main contrib$/ main contrib non-free/' /etc/apt/sources.list
+
+    echo "Repositories updated. Running apt update…"
+    sudo apt update
+}
+
 configure_audio_overlay() {
     echo "Configuring HiFiBerry Amp2 audio overlay…"
 
@@ -125,8 +139,9 @@ configure_audio_codecs() {
     fi
 
     if [ -n "$PACKAGES" ]; then
-        sudo apt update
-        sudo apt install -y --no-install-recommends $PACKAGES
+        if ! sudo apt install -y --no-install-recommends $PACKAGES; then
+            echo "Warning: Failed to install codec packages: $PACKAGES. Some codecs may not work."
+        fi
     fi
 
     CODECS="sbc"
@@ -267,6 +282,7 @@ trap cleanup EXIT
 echo "Raspberry Pi Audio Receiver Install"
 
 verify_os
+enable_debian_contrib
 configure_audio_overlay
 set_hostname
 install_bluetooth
