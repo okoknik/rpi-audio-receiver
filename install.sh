@@ -100,6 +100,9 @@ configure_pipewire_bluetooth() {
     # Enable Bluetooth service
     systemctl enable --now bluetooth.service
 
+    # Disable serial console on Bluetooth UART to avoid conflicts
+    sudo sed -i 's/ console=ttyAMA0,[0-9]*//g' /boot/firmware/cmdline.txt
+
     echo "PipeWire Bluetooth support installed."
     echo "You may configure codecs or profiles in WirePlumber config if needed."
 }
