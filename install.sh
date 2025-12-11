@@ -128,14 +128,10 @@ configure_audio_codecs() {
 
     read -p "Enable aptX codec? [y/N] " ENABLE_APTX
     read -p "Enable AAC codec? [y/N] " ENABLE_AAC
-    read -p "Enable LDAC codec? [y/N] " ENABLE_LDAC
 
     PACKAGES=""
     if [[ "$ENABLE_APTX" =~ ^(yes|y|Y)$ ]]; then
         PACKAGES="$PACKAGES libopenaptx0"
-    fi
-    if [[ "$ENABLE_LDAC" =~ ^(yes|y|Y)$ ]]; then
-        PACKAGES="$PACKAGES libldac0"
     fi
 
     if [ -n "$PACKAGES" ]; then
@@ -150,9 +146,6 @@ configure_audio_codecs() {
     fi
     if [[ "$ENABLE_APTX" =~ ^(yes|y|Y)$ ]]; then
         CODECS="$CODECS aptx"
-    fi
-    if [[ "$ENABLE_LDAC" =~ ^(yes|y|Y)$ ]]; then
-        CODECS="$CODECS ldac"
     fi
 
     sudo mkdir -p /etc/wireplumber/bluetooth.lua.d
@@ -174,7 +167,7 @@ install_shairport() {
     # Ensure PipeWire and required audio packages are installed
     sudo apt update
     sudo apt install -y --no-install-recommends \
-         pipewire pipewire-pulse wireplumber \
+         pipewire pipewire-pulse wireplumber libpipewire-0.3-dev \
          libspa-0.2-bluetooth avahi-daemon \
          wget unzip autoconf automake build-essential \
          libtool git libpopt-dev libconfig-dev \
