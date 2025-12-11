@@ -49,11 +49,16 @@ configure_audio_overlay() {
     echo "Configuring HiFiBerry Amp2 audio overlay…"
 
     # Remove dtparam=audio=on if it exists
-    sudo sed -i '/^dtparam=audio=on$/d' /boot/config.txt
+    sudo sed -i '/^dtparam=audio=on$/d' /boot/firmware/config.txt
 
     # Add dtoverlay=hifiberry-dacplus if not present
-    if ! grep -q '^dtoverlay=hifiberry-dacplus$' /boot/config.txt; then
-        echo 'dtoverlay=hifiberry-dacplus' | sudo tee -a /boot/config.txt >/dev/null
+    if ! grep -q '^dtoverlay=hifiberry-dacplus$' /boot/firmware/config.txt; then
+        echo 'dtoverlay=hifiberry-dacplus' | sudo tee -a /boot/firmware/config.txt >/dev/null
+    fi
+
+    # Add dtoverlay=vc4-kms-v3d,noaudio if not present
+    if ! grep -q '^dtoverlay=vc4-kms-v3d,noaudio$' /boot/firmware/config.txt; then
+        echo 'dtoverlay=vc4-kms-v3d,noaudio' | sudo tee -a /boot/firmware/config.txt >/dev/null
     fi
 
     echo "HiFiBerry Amp2 configured."
@@ -167,12 +172,9 @@ install_shairport() {
     # Ensure PipeWire and required audio packages are installed
     sudo apt update
     sudo apt install -y --no-install-recommends \
-         pipewire pipewire-pulse wireplumber libpipewire-0.3-dev \
-         libspa-0.2-bluetooth avahi-daemon \
-         wget unzip autoconf automake build-essential \
-         libtool git libpopt-dev libconfig-dev \
-         libssl-dev libsoxr-dev libplist-dev libsodium-dev \
-         libavahi-client-dev libavcodec-dev libavformat-dev libavutil-dev uuid-dev xxd
+         pipewire pipewire-pulse wireplumber \
+         libspa-0.2-bluetooth shairport-sync \
+         wget unzip autoconf automake build-essential libtool
 
     # If PipeWire isn’t running as user, enable it
     systemctl --user enable --now pipewire pipewire-pulse wireplumber
@@ -183,17 +185,7 @@ install_shairport() {
 
     cd "$TMP_DIR"
 
-    # (same ALAC + NQPTP install as before)
-    wget -O alac-master.zip https://github.com/mikebrady/alac/archive/refs/heads/master.zip
-    unzip alac-master.zip
-    cd alac-master
-    autoreconf -fi
-    ./configure
-    make -j "$(nproc)"
-    sudo make install
-    sudo ldconfig
-    cd ..
-
+    # Build NQPTP for AirPlay 2 timing
     wget -O nqptp-${NQPTP_VERSION}.zip \
          https://github.com/mikebrady/nqptp/archive/refs/tags/${NQPTP_VERSION}.zip
     unzip nqptp-${NQPTP_VERSION}.zip
@@ -204,31 +196,15 @@ install_shairport() {
     sudo make install
     cd ..
 
-    wget -O shairport-sync-${SHAIRPORT_SYNC_VERSION}.zip \
-         https://github.com/mikebrady/shairport-sync/archive/refs/tags/${SHAIRPORT_SYNC_VERSION}.zip
-    unzip shairport-sync-${SHAIRPORT_SYNC_VERSION}.zip
-    cd shairport-sync-${SHAIRPORT_SYNC_VERSION}
-
-    autoreconf -fi
-    ./configure --sysconfdir=/etc \
-                --with-pw \
-                --with-avahi \
-                --with-ssl=openssl \
-                --with-systemd \
-                --with-airplay-2
-    make -j "$(nproc)"
-    sudo make install
-    cd ..
-
-    # Shairport Sync config (PipeWire backend)
+    # Shairport Sync config (PulseAudio backend for PipeWire compatibility)
     sudo tee /etc/shairport-sync.conf >/dev/null <<EOF
 general = {
   name = "${PRETTY_HOSTNAME:-$(hostname)}";
-  output_backend = "pw";
+  output_backend = "pa";
 }
 
-pw = {
-  # Additional PipeWire options can go here if desired
+pa = {
+  # Additional PulseAudio options can go here if desired
 };
 
 sessioncontrol = {
