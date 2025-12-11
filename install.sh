@@ -56,8 +56,15 @@ configure_audio_overlay() {
         echo 'dtoverlay=hifiberry-dacplus' | sudo tee -a /boot/firmware/config.txt >/dev/null
     fi
 
-    # Add dtoverlay=vc4-kms-v3d,noaudio if not present
-    if ! grep -q '^dtoverlay=vc4-kms-v3d,noaudio$' /boot/firmware/config.txt; then
+    # Configure dtoverlay=vc4-kms-v3d,noaudio
+    if grep -q '^dtoverlay=vc4-kms-v3d,noaudio$' /boot/firmware/config.txt; then
+        # Already configured correctly
+        :
+    elif grep -q '^dtoverlay=vc4-kms-v3d$' /boot/firmware/config.txt; then
+        # Replace existing without noaudio
+        sudo sed -i 's/^dtoverlay=vc4-kms-v3d$/dtoverlay=vc4-kms-v3d,noaudio/' /boot/firmware/config.txt
+    else
+        # Append new
         echo 'dtoverlay=vc4-kms-v3d,noaudio' | sudo tee -a /boot/firmware/config.txt >/dev/null
     fi
 
@@ -89,6 +96,9 @@ configure_pipewire_bluetooth() {
     # Restart PipeWire services
     systemctl --user daemon-reload
     systemctl --user enable --now wireplumber pipewire pipewire-pulse
+
+    # Enable Bluetooth service
+    systemctl enable --now bluetooth.service
 
     echo "PipeWire Bluetooth support installed."
     echo "You may configure codecs or profiles in WirePlumber config if needed."
@@ -219,33 +229,6 @@ EOF
     sudo systemctl enable --now shairport-sync.service
 }
 
-install_raspotify() {
-    read -p "Do you want to install Raspotify (Spotify Connect)? [y/N] " REPLY
-    if [[ ! "$REPLY" =~ ^(yes|y|Y)$ ]]; then
-        return
-    fi
-
-    curl -sL https://dtcooper.github.io/raspotify/install.sh | sh
-
-    LIBRESPOT_NAME="${PRETTY_HOSTNAME// /-}"
-    LIBRESPOT_NAME=${LIBRESPOT_NAME:-$(hostname)}
-
-    sudo tee /etc/raspotify/conf >/dev/null <<EOF
-LIBRESPOT_QUIET=on
-LIBRESPOT_AUTOPLAY=on
-LIBRESPOT_DISABLE_AUDIO_CACHE=on
-LIBRESPOT_DISABLE_CREDENTIAL_CACHE=on
-LIBRESPOT_ENABLE_VOLUME_NORMALISATION=on
-LIBRESPOT_NAME="${LIBRESPOT_NAME}"
-LIBRESPOT_DEVICE_TYPE="avr"
-LIBRESPOT_BITRATE="320"
-LIBRESPOT_INITIAL_VOLUME="100"
-EOF
-
-    sudo systemctl daemon-reload
-    sudo systemctl enable raspotify
-}
-
 trap cleanup EXIT
 
 echo "Raspberry Pi Audio Receiver Install"
@@ -257,4 +240,12 @@ set_hostname
 install_bluetooth
 configure_audio_codecs
 install_shairport
-install_raspotify
+
+echo "Installation complete. A reboot is recommended for audio overlays and services to take effect."
+read -p "Reboot now? [y/N] " REBOOT_REPLY
+if [[ "$REBOOT_REPLY" =~ ^(yes|y|Y)$ ]]; then
+    echo "Rebooting..."
+    sudo reboot
+else
+    echo "Please reboot manually when ready."
+fi
