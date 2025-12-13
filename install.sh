@@ -31,20 +31,6 @@ verify_os() {
     fi
 }
 
-enable_debian_contrib() {
-    echo "Enabling Debian contrib and non-free repositories…"
-
-    # Backup sources.list
-    sudo cp /etc/apt/sources.list /etc/apt/sources.list.backup
-
-    # Add contrib and non-free to lines containing 'main'
-    sudo sed -i 's/ main$/ main contrib non-free/' /etc/apt/sources.list
-    sudo sed -i 's/ main contrib$/ main contrib non-free/' /etc/apt/sources.list
-
-    echo "Repositories updated. Running apt update…"
-    sudo apt update
-}
-
 configure_audio_overlay() {
     echo "Configuring HiFiBerry Amp2 audio overlay…"
 
@@ -159,11 +145,11 @@ configure_audio_codecs() {
     fi
 
     CODECS="sbc"
+    if [[ "$ENABLE_APTX" =~ ^(yes|y|Y)$ ]]; then
+        CODECS="aptx $CODECS"
+    fi
     if [[ "$ENABLE_AAC" =~ ^(yes|y|Y)$ ]]; then
         CODECS="$CODECS aac"
-    fi
-    if [[ "$ENABLE_APTX" =~ ^(yes|y|Y)$ ]]; then
-        CODECS="$CODECS aptx"
     fi
 
     sudo mkdir -p /etc/wireplumber/bluetooth.lua.d
@@ -191,23 +177,6 @@ install_shairport() {
 
     # If PipeWire isn’t running as user, enable it
     systemctl --user enable --now pipewire pipewire-pulse wireplumber
-
-    if [[ -z "$TMP_DIR" ]]; then
-        TMP_DIR=$(mktemp -d)
-    fi
-
-    cd "$TMP_DIR"
-
-    # Build NQPTP for AirPlay 2 timing
-    wget -O nqptp-${NQPTP_VERSION}.zip \
-         https://github.com/mikebrady/nqptp/archive/refs/tags/${NQPTP_VERSION}.zip
-    unzip nqptp-${NQPTP_VERSION}.zip
-    cd nqptp-${NQPTP_VERSION}
-    autoreconf -fi
-    ./configure --with-systemd-startup
-    make -j "$(nproc)"
-    sudo make install
-    cd ..
 
     # Shairport Sync config (PulseAudio backend for PipeWire compatibility)
     sudo tee /etc/shairport-sync.conf >/dev/null <<EOF
@@ -237,7 +206,6 @@ trap cleanup EXIT
 echo "Raspberry Pi Audio Receiver Install"
 
 verify_os
-enable_debian_contrib
 configure_audio_overlay
 set_hostname
 install_bluetooth
