@@ -141,8 +141,23 @@ ExecStart=/usr/sbin/rfkill unblock bluetooth
 WantedBy=multi-user.target
 EOF
 
+    # Bluetooth power and discoverable service
+    sudo tee /etc/systemd/system/bluetooth-power-discoverable.service >/dev/null <<'EOF'
+[Unit]
+Description=Power on Bluetooth and set discoverable
+After=rfkill-unblock-bluetooth.service bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bluetoothctl power on && /usr/bin/bluetoothctl discoverable on
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
     sudo systemctl daemon-reload
     sudo systemctl enable rfkill-unblock-bluetooth.service
+    sudo systemctl enable bluetooth-power-discoverable.service
 }
 
 configure_audio_codecs() {
@@ -208,11 +223,11 @@ install_shairport() {
     # If PipeWire isn’t running as user, enable it
     systemctl --user enable pipewire pipewire-pulse wireplumber
 
-    # Shairport Sync config (PipeWire backend)
+    # Shairport Sync config (PulseAudio backend for PipeWire compatibility)
     sudo tee /etc/shairport-sync.conf >/dev/null <<EOF
 general = {
   name = "${PRETTY_HOSTNAME:-$(hostname)}";
-  output_backend = "pw";
+  output_backend = "pa";
 }
 
 sessioncontrol = {
@@ -222,7 +237,14 @@ EOF
 
     sudo usermod -a -G audio shairport-sync
 
-    # Configure Shairport Sync systemd service to run as your user
+    # Override Shairport Sync service to run as the installing user
+    sudo mkdir -p /etc/systemd/system/shairport-sync.service.d
+    sudo tee /etc/systemd/system/shairport-sync.service.d/override.conf >/dev/null <<EOF
+[Service]
+User=$USER_NAME
+EOF
+
+    # Configure Shairport Sync systemd service
     sudo systemctl daemon-reload
     sudo systemctl enable --now shairport-sync.service
 }
