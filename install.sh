@@ -131,10 +131,15 @@ configure_audio_codecs() {
     echo "Configuring Bluetooth audio codecs…"
 
     read -p "Enable aptX codec? [y/N] " ENABLE_APTX
+    read -p "Enable aptX HD codec? [y/N] " ENABLE_APTX_HD
     read -p "Enable AAC codec? [y/N] " ENABLE_AAC
 
     PACKAGES=""
     if [[ "$ENABLE_APTX" =~ ^(yes|y|Y)$ ]]; then
+        PACKAGES="$PACKAGES libopenaptx0"
+    fi
+
+    if [[ "$ENABLE_APTX_HD" =~ ^(yes|y|Y)$ ]]; then
         PACKAGES="$PACKAGES libopenaptx0"
     fi
 
@@ -145,6 +150,9 @@ configure_audio_codecs() {
     fi
 
     CODECS="sbc"
+    if [[ "$ENABLE_APTX_HD" =~ ^(yes|y|Y)$ ]]; then
+        CODECS="aptx_hd $CODECS"
+    fi
     if [[ "$ENABLE_APTX" =~ ^(yes|y|Y)$ ]]; then
         CODECS="aptx $CODECS"
     fi
