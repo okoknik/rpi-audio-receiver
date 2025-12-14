@@ -2,6 +2,8 @@
 
 set -e
 
+USER_NAME=$(whoami)
+
 NQPTP_VERSION="1.2.4"
 SHAIRPORT_SYNC_VERSION="4.3.2"
 TMP_DIR=""
@@ -204,7 +206,7 @@ install_shairport() {
          wget unzip autoconf automake build-essential libtool
 
     # If PipeWire isn’t running as user, enable it
-    systemctl --user enable --now pipewire pipewire-pulse wireplumber
+    systemctl --user enable pipewire pipewire-pulse wireplumber
 
     # Shairport Sync config (PipeWire backend)
     sudo tee /etc/shairport-sync.conf >/dev/null <<EOF
