@@ -86,6 +86,9 @@ configure_pipewire_bluetooth() {
     # Enable Bluetooth service
     systemctl enable --now bluetooth.service
 
+    # Unblock Bluetooth rfkill
+    sudo rfkill unblock bluetooth
+
     # Disable serial console on Bluetooth UART to avoid conflicts
     sudo sed -i 's/ console=ttyAMA0,[0-9]*//g' /boot/firmware/cmdline.txt
 
@@ -121,6 +124,23 @@ EOF
 
     sudo systemctl daemon-reload
     sudo systemctl enable bt-agent@hci0.service
+
+    # rfkill unblock service for persistence
+    sudo tee /etc/systemd/system/rfkill-unblock-bluetooth.service >/dev/null <<'EOF'
+[Unit]
+Description=Unblock Bluetooth rfkill
+After=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/rfkill unblock bluetooth
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable rfkill-unblock-bluetooth.service
 }
 
 configure_audio_codecs() {
@@ -186,16 +206,12 @@ install_shairport() {
     # If PipeWire isn’t running as user, enable it
     systemctl --user enable --now pipewire pipewire-pulse wireplumber
 
-    # Shairport Sync config (PulseAudio backend for PipeWire compatibility)
+    # Shairport Sync config (PipeWire backend)
     sudo tee /etc/shairport-sync.conf >/dev/null <<EOF
 general = {
   name = "${PRETTY_HOSTNAME:-$(hostname)}";
-  output_backend = "pa";
+  output_backend = "pw";
 }
-
-pa = {
-  # Additional PulseAudio options can go here if desired
-};
 
 sessioncontrol = {
   session_timeout = 20;
